@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 500 500" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;">
+    <g id="Flow" transform="matrix(1.50423,0,0,1.50423,-68.0902,-114.621)">
+        <g transform="matrix(15.7307,0,0,15.7307,22.6955,53.6288)">
+            <path d="M11,3.102L11,10.898C11,10.954 10.954,11 10.898,11L3.102,11C3.046,11 3,10.954 3,10.898L3,3.102C3,3.046 3.046,3 3.102,3L10.898,3C10.954,3 11,3.046 11,3.102Z" style="fill:none;stroke:rgb(228,61,58);stroke-width:2px;"/>
+        </g>
+        <g transform="matrix(15.7307,0,0,15.7307,22.6955,53.6288)">
+            <path d="M7,11L7,15C7,16.097 7.903,17 9,17L13,17" style="fill:none;fill-rule:nonzero;stroke:rgb(228,61,58);stroke-width:2px;"/>
+        </g>
+        <g transform="matrix(15.7307,0,0,15.7307,22.6955,53.6288)">
+            <path d="M21,13.102L21,20.898C21,20.954 20.954,21 20.898,21L13.102,21C13.046,21 13,20.954 13,20.898L13,13.102C13,13.046 13.046,13 13.102,13L20.898,13C20.954,13 21,13.046 21,13.102Z" style="fill:none;stroke:rgb(228,61,58);stroke-width:2px;"/>
+        </g>
+    </g>
+    <g id="Spark" transform="matrix(13.6319,0,0,13.6319,281.206,44.3261)">
+        <path d="M9,18C9,14.708 11.708,12 15,12C11.708,12 9,9.292 9,6C9,9.292 6.292,12 3,12C6.292,12 9,14.708 9,18Z" style="fill:none;fill-rule:nonzero;stroke:rgb(96,165,250);stroke-width:2px;"/>
+    </g>
+    <g transform="matrix(5.26627,0,0,6.11015,68.4919,345.775)">
+        <g id="Lock">
+            <path d="M19.54,9.502L20.651,9.502L21.464,9.644L22.127,10.029L22.574,10.6L22.739,11.301L22.739,21.699L22.574,22.4L22.127,22.971L21.464,23.356L20.651,23.498L3.349,23.498L2.536,23.356L1.873,22.971L1.426,22.4L1.261,21.699L1.261,11.301L1.426,10.6L1.873,10.029L2.536,9.644L3.349,9.502L4.46,9.502L4.46,6.761C4.46,3.196 7.864,0.262 12,0.262C16.136,0.262 19.54,3.196 19.54,6.761L19.54,9.502ZM7.937,9.502L16.063,9.502L16.063,6.761C16.063,4.84 14.229,3.259 12,3.259C9.771,3.259 7.937,4.84 7.937,6.761L7.937,9.502ZM4.739,12.498L4.739,20.502L19.261,20.502L19.261,12.498L4.739,12.498Z" style="fill:rgb(96,165,250);"/>
+        </g>
+    </g>
+</svg>

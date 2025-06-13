@@ -1,0 +1,64 @@
+{
+  "name": "concurrencylock",
+  "version": "0.1.0",
+  "description": "Custom n8n nodes to manage concurrency locks using Redis.",
+  "keywords": [
+    "n8n-community-node-package",
+    "concurrency",
+    "redis",
+    "lock",
+    "keepalive",
+    "release",
+    "semaphore",
+    "check",
+    "apm"
+  ],
+  "license": "MIT",
+  "homepage": "",
+  "author": {
+    "name": "Alberto Pérez",
+    "email": "aperez@brujuleo.es"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/<...>/n8n-nodes-flow-running.git"
+  },
+  "engines": {
+    "node": ">=20.15"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "npx rimraf dist && tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes --write",
+    "lint": "eslint nodes package.json",
+    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "nodes": [
+      "dist/nodes/ConcurrencyLockCheck/ConcurrencyLockCheck.node.js",
+      "dist/nodes/ConcurrencyLockKeepAlive/ConcurrencyLockKeepAlive.node.js",
+      "dist/nodes/ConcurrencyLockRelease/ConcurrencyLockRelease.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.6.2",
+    "@typescript-eslint/eslint-plugin": "7.0.0",
+    "@typescript-eslint/parser": "7.0.0",
+    "eslint": "8.56.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "gulp": "^5.0.1",
+    "gulp-multi-process": "^1.4.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "ioredis": "^5.3.0",
+    "luxon": "^3.6.1",
+    "n8n-workflow": "^1.82.0"
+  }
+}
