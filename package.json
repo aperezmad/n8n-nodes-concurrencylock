@@ -1,5 +1,5 @@
 {
-  "name": "concurrencylock",
+  "name": "n8n-nodes-concurrencylock",
   "version": "0.1.0",
   "description": "Custom n8n nodes to manage concurrency locks using Redis.",
   "keywords": [
@@ -11,13 +11,14 @@
     "release",
     "semaphore",
     "check",
-    "apm"
+    "apm",
+    "tecnoia"
   ],
   "license": "MIT",
-  "homepage": "",
+  "homepage": "https://www.tecnoia.es/n8n-nodes",
   "author": {
     "name": "Alberto Pérez",
-    "email": "aperez@brujuleo.es"
+    "email": "alberto@tecnoia.es"
   },
   "repository": {
     "type": "git",

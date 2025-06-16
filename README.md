@@ -18,10 +18,7 @@ To install the custom nodes:
 
    ```bash
    cd ~/.n8n/custom
-   git clone https://github.com/<username>/n8n-nodes-flow-running.git
-   cd n8n-nodes-flow-running
-   npm install
-   npm run build
+   git clone https://github.com/aperezmad/n8n-nodes-concurrencylock.git 
    ```
 
 2. **Restart n8n**:
@@ -82,6 +79,11 @@ Manually releases the lock, allowing other instances of the workflow to run:
 - Use at the end of your workflow or in error handlers
 - Good practice to release locks even though they auto-expire with TTL
 - Ensures immediate availability for the next execution
+
+### See this node in action
+
+[![Concurrency lock node in action](images/video-cover.png)](https://youtu.be/e3aCK12PBrk)
+
 
 ## Configuration Options
 
