@@ -117,20 +117,11 @@ export class ConcurrencyLockCheck implements INodeType {
         try {
             await redis.connect();
 
-            const exists = await redis.exists(lockKey);
+            const currentDateTime = DateTime.now().toFormat('yyyy/MM/dd HH:mm');
+            // SET NX EX is atomic: sets the key only if it does not exist
+            const acquired = await redis.set(lockKey, currentDateTime, 'EX', ttl, 'NX');
 
-            // If we are in test mode and the ignoreInTestMode parameter is enabled,
-            // ignore the lock and exit through "Idle" (even if the lock exists)
             if (isTestMode && ignoreInTestMode) {
-                // Even if the lock exists, in test mode with ignoreInTestMode=true
-                // we act as if it didn't exist, but WITHOUT DELETING the existing lock
-                const currentDateTime = DateTime.now().toFormat('yyyy/MM/dd HH:mm');
-
-                // We don't need to create a new key if it already exists
-                if (!exists) {
-                    await redis.set(lockKey, currentDateTime, 'EX', ttl);
-                }
-
                 return [[{
                     json: {
                         workflowId,
@@ -140,9 +131,16 @@ export class ConcurrencyLockCheck implements INodeType {
                 }], []];
             }
 
-            // Normal behavior (outside test mode or with ignoreInTestMode=false)
-            if (exists) {
-                // The key ALREADY EXISTS → output 1 "Running" (second output)
+            if (acquired === 'OK') {
+                // Lock acquired → Idle
+                return [[{
+                    json: {
+                        workflowId,
+                        lastUpdate: currentDateTime
+                    }
+                }], []];
+            } else {
+                // Lock already held → Running
                 const lastUpdate = await redis.get(lockKey);
                 return [[], [{
                     json: {
@@ -150,21 +148,9 @@ export class ConcurrencyLockCheck implements INodeType {
                         lastUpdate
                     }
                 }]];
-            } else {
-                // The key DOES NOT EXIST → create and output 0 "Idle" (first output)
-                const currentDateTime = DateTime.now().toFormat('yyyy/MM/dd HH:mm');
-                await redis.set(lockKey, currentDateTime, 'EX', ttl);
-                return [[{
-                    json: {
-                        workflowId,
-                        lastUpdate: currentDateTime
-                    }
-                }], []];
             }
         } finally {
             await redis.quit();
         }
-
-        return [[], []];
     }
 }
