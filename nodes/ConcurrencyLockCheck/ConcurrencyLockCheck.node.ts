@@ -5,7 +5,6 @@ import type {
     INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
-import { DateTime } from 'luxon';
 import Redis from 'ioredis';
 
 export class ConcurrencyLockCheck implements INodeType {
@@ -55,8 +54,8 @@ export class ConcurrencyLockCheck implements INodeType {
                 default: '={{ $workflow.id }}',
                 required: true,
                 typeOptions: {
-                    alwaysOpenEditWindow: true,  // Abre automáticamente el editor de expresiones
-                    exposeResult: true,          // Hace que sea más fácil usar los resultados
+                    alwaysOpenEditWindow: true,
+                    exposeResult: true,
                 },
                 description: 'The unique ID for the workflow',
             },
@@ -98,55 +97,39 @@ export class ConcurrencyLockCheck implements INodeType {
         const ttl = this.getNodeParameter('ttl', 0, 60) as number;
         const ignoreInTestMode = this.getNodeParameter('ignoreInTestMode', 0) as boolean;
 
-        // Check if we're in test mode
         const isTestMode = this.getMode() === 'manual';
 
-        // Validate workflowId
         if (!workflowId || workflowId.trim() === '') {
             throw new NodeOperationError(this.getNode(), 'Workflow ID cannot be empty');
         }
 
-        // Validate namespace
         if (!namespace || namespace.trim() === '') {
             throw new NodeOperationError(this.getNode(), 'Namespace cannot be empty');
         }
 
-        // Use configurable namespace
         const lockKey = `${namespace}:${workflowId}`;
+        const executionId = this.getExecutionId();
 
         try {
             await redis.connect();
 
-            const currentDateTime = DateTime.now().toFormat('yyyy/MM/dd HH:mm');
-            // SET NX EX is atomic: sets the key only if it does not exist
-            const acquired = await redis.set(lockKey, currentDateTime, 'EX', ttl, 'NX');
+            // SET NX EX is atomic: sets the key only if it does not exist.
+            // The value is the execution ID, establishing ownership of the lock.
+            const acquired = await redis.set(lockKey, executionId, 'EX', ttl, 'NX');
 
             if (isTestMode && ignoreInTestMode) {
                 return [[{
-                    json: {
-                        workflowId,
-                        lastUpdate: currentDateTime,
-                        testMode: true
-                    }
+                    json: { workflowId, executionId, lockKey, testMode: true }
                 }], []];
             }
 
             if (acquired === 'OK') {
-                // Lock acquired → Idle
                 return [[{
-                    json: {
-                        workflowId,
-                        lastUpdate: currentDateTime
-                    }
+                    json: { workflowId, executionId, lockKey }
                 }], []];
             } else {
-                // Lock already held → Running
-                const lastUpdate = await redis.get(lockKey);
                 return [[], [{
-                    json: {
-                        workflowId,
-                        lastUpdate
-                    }
+                    json: { workflowId, executionId, lockKey }
                 }]];
             }
         } finally {

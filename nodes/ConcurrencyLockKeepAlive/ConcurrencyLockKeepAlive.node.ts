@@ -7,6 +7,19 @@ import type {
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 import Redis from 'ioredis';
 
+// Returns 1 if renewed, 0 if expired (key gone), 2 if taken by another execution.
+const KEEP_ALIVE_SCRIPT = `
+local current = redis.call("get", KEYS[1])
+if current == ARGV[1] then
+    redis.call("set", KEYS[1], ARGV[1], "EX", tonumber(ARGV[2]))
+    return 1
+elseif current == false then
+    return 0
+else
+    return 2
+end
+`;
+
 export class ConcurrencyLockKeepAlive implements INodeType {
     description: INodeTypeDescription = {
         displayName: 'Concurrency Lock Keep Alive [apm]',
@@ -23,7 +36,8 @@ export class ConcurrencyLockKeepAlive implements INodeType {
             name: 'Keep Alive',
         },
         inputs: [NodeConnectionType.Main],
-        outputs: [NodeConnectionType.Main],
+        outputs: [NodeConnectionType.Main, NodeConnectionType.Main, NodeConnectionType.Main],
+        outputNames: ['Renewed', 'Expired', 'Taken'],
         credentials: [
             {
                 // eslint-disable-next-line n8n-nodes-base/node-class-description-credentials-name-unsuffixed
@@ -85,40 +99,30 @@ export class ConcurrencyLockKeepAlive implements INodeType {
         const namespace = this.getNodeParameter('namespace', 0) as string;
         const ttl = this.getNodeParameter('ttl', 0, 60) as number;
 
-        // Validate workflowId
         if (!workflowId || workflowId.trim() === '') {
             throw new NodeOperationError(this.getNode(), 'Workflow ID cannot be empty');
         }
 
-        // Validate namespace
         if (!namespace || namespace.trim() === '') {
             throw new NodeOperationError(this.getNode(), 'Namespace cannot be empty');
         }
 
-        // Use configurable namespace
         const lockKey = `${namespace}:${workflowId}`;
-
-        // Helper function to format the current date and time
-        const getCurrentDateTime = (): string => {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            return `${year}/${month}/${day} ${hours}:${minutes}`;
-        };
+        const executionId = this.getExecutionId();
 
         try {
             await redis.connect();
-            const currentDateTime = getCurrentDateTime();
-            await redis.set(lockKey, currentDateTime, 'EX', ttl);
-            return [[{
-                json: {
-                    workflowId,
-                    lastUpdate: currentDateTime
-                }
-            }]];
+            const result = await redis.eval(KEEP_ALIVE_SCRIPT, 1, lockKey, executionId, ttl.toString());
+
+            const json = { workflowId, executionId, lockKey };
+
+            if (result === 1) {
+                return [[{ json }], [], []];
+            } else if (result === 0) {
+                return [[], [{ json }], []];
+            } else {
+                return [[], [], [{ json }]];
+            }
         } finally {
             await redis.quit();
         }
