@@ -30,7 +30,7 @@ export class ConcurrencyLockRelease implements INodeType {
             light: 'file:release.svg',
             dark: 'file:release-dark.svg',
         },
-        subtitle: 'Release Lock',
+        subtitle: '',
         description: 'Release concurrency lock for a workflow',
         defaults: {
             name: 'Release Lock',
@@ -58,7 +58,17 @@ export class ConcurrencyLockRelease implements INodeType {
                 type: 'string',
                 default: 'executions',
                 required: true,
-                description: 'Redis namespace to group keys, e.g., "executions" or "workflows:executions"',
+                description: 'Redis key prefix used to group locks. Must match the value used in the Check and Keep Alive nodes for the same workflow.',
+            },
+            {
+                displayName: 'Redis Database',
+                name: 'redisDb',
+                type: 'number',
+                default: 0,
+                typeOptions: {
+                    minValue: 0,
+                },
+                description: 'Logical database number (0-15 by default) where the lock keys live. Must match the value used in the Check and Keep Alive nodes of the same workflow. Defaults to 0 to preserve behavior of existing workflows.',
             },
             {
                 displayName: 'Workflow ID',
@@ -67,7 +77,7 @@ export class ConcurrencyLockRelease implements INodeType {
                 default: '={{ $workflow.id }}',
                 required: true,
                 // eslint-disable-next-line n8n-nodes-base/node-param-description-miscased-id
-                description: 'The unique ID for the workflow usually ${workflow.id}',
+                description: 'Unique identifier for this lock. Must match the value used in the Check node. Only the execution that originally acquired the lock can release it.',
             },
         ],
     };
@@ -78,18 +88,9 @@ export class ConcurrencyLockRelease implements INodeType {
             throw new NodeOperationError(this.getNode(), 'Redis credentials are missing');
         }
 
-        const redis = new Redis({
-            host: redisCredentials.host as string,
-            port: redisCredentials.port as number,
-            password: redisCredentials.password as string,
-            maxRetriesPerRequest: 3,
-            lazyConnect: true,
-            connectTimeout: 10000,
-            commandTimeout: 5000,
-        });
-
         const workflowId = this.getNodeParameter('workflowId', 0) as string;
         const namespace = this.getNodeParameter('namespace', 0) as string;
+        const redisDb = this.getNodeParameter('redisDb', 0, 0) as number;
 
         if (!workflowId || workflowId.trim() === '') {
             throw new NodeOperationError(this.getNode(), 'Workflow ID cannot be empty');
@@ -98,6 +99,21 @@ export class ConcurrencyLockRelease implements INodeType {
         if (!namespace || namespace.trim() === '') {
             throw new NodeOperationError(this.getNode(), 'Namespace cannot be empty');
         }
+
+        if (!Number.isInteger(redisDb) || redisDb < 0) {
+            throw new NodeOperationError(this.getNode(), 'Redis Database must be a non-negative integer');
+        }
+
+        const redis = new Redis({
+            host: redisCredentials.host as string,
+            port: redisCredentials.port as number,
+            password: redisCredentials.password as string,
+            db: redisDb,
+            maxRetriesPerRequest: 3,
+            lazyConnect: true,
+            connectTimeout: 10000,
+            commandTimeout: 5000,
+        });
 
         const lockKey = `${namespace}:${workflowId}`;
         const executionId = this.getExecutionId();

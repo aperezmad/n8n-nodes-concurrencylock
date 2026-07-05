@@ -17,7 +17,7 @@ export class ConcurrencyLockCheck implements INodeType {
             light: 'file:check.svg',
             dark: 'file:check-dark.svg',
         },
-        subtitle: 'Check Running State',
+        subtitle: '',
         description: 'Check if a workflow is running and create lock if not',
         defaults: {
             name: 'Concurrency Lock Check',
@@ -45,7 +45,17 @@ export class ConcurrencyLockCheck implements INodeType {
                 type: 'string',
                 default: 'executions',
                 required: true,
-                description: 'Redis namespace to group keys, e.g., "executions" or "workflows:executions"',
+                description: 'Redis key prefix used to group locks. Must be the same across the Check, Keep Alive and Release nodes of the same workflow. Example: "executions" produces the key "executions:&lt;workflowId&gt;".',
+            },
+            {
+                displayName: 'Redis Database',
+                name: 'redisDb',
+                type: 'number',
+                default: 0,
+                typeOptions: {
+                    minValue: 0,
+                },
+                description: 'Logical database number (0-15 by default) where the lock keys will be created. Must be the same across the Check, Keep Alive and Release nodes of the same workflow. Defaults to 0 to preserve behavior of existing workflows.',
             },
             {
                 displayName: 'Workflow ID',
@@ -57,21 +67,22 @@ export class ConcurrencyLockCheck implements INodeType {
                     alwaysOpenEditWindow: true,
                     exposeResult: true,
                 },
-                description: 'The unique ID for the workflow',
+                description: 'Unique identifier for this lock. Defaults to the current workflow ID. Change it only if you need multiple independent locks within the same workflow.',
             },
             {
                 displayName: 'TTL (Seconds)',
                 name: 'ttl',
                 type: 'number',
                 default: 120,
-                description: 'Time-to-live for the lock in seconds',
+                description: 'Seconds before the lock auto-expires if not renewed by a Keep Alive node. Set this value higher than the expected interval between Keep Alive calls to avoid unintended expiration.',
             },
             {
                 displayName: 'Ignore Lock in Test Mode',
                 name: 'ignoreInTestMode',
                 type: 'boolean',
                 default: false,
-                description: 'Whether to always allow execution when running in test mode',
+                noDataExpression: true,
+                description: 'When enabled, manual (test) executions always exit via "Idle" without acquiring or modifying any lock. Useful for testing the workflow without interfering with locks held by production executions.',
             },
         ],
     };
@@ -82,18 +93,9 @@ export class ConcurrencyLockCheck implements INodeType {
             throw new NodeOperationError(this.getNode(), 'Redis credentials are missing');
         }
 
-        const redis = new Redis({
-            host: redisCredentials.host as string,
-            port: redisCredentials.port as number,
-            password: redisCredentials.password as string,
-            maxRetriesPerRequest: 3,
-            lazyConnect: true,
-            connectTimeout: 10000,
-            commandTimeout: 5000,
-        });
-
         const workflowId = this.getNodeParameter('workflowId', 0) as string;
         const namespace = this.getNodeParameter('namespace', 0) as string;
+        const redisDb = this.getNodeParameter('redisDb', 0, 0) as number;
         const ttl = this.getNodeParameter('ttl', 0, 60) as number;
         const ignoreInTestMode = this.getNodeParameter('ignoreInTestMode', 0) as boolean;
 
@@ -106,6 +108,21 @@ export class ConcurrencyLockCheck implements INodeType {
         if (!namespace || namespace.trim() === '') {
             throw new NodeOperationError(this.getNode(), 'Namespace cannot be empty');
         }
+
+        if (!Number.isInteger(redisDb) || redisDb < 0) {
+            throw new NodeOperationError(this.getNode(), 'Redis Database must be a non-negative integer');
+        }
+
+        const redis = new Redis({
+            host: redisCredentials.host as string,
+            port: redisCredentials.port as number,
+            password: redisCredentials.password as string,
+            db: redisDb,
+            maxRetriesPerRequest: 3,
+            lazyConnect: true,
+            connectTimeout: 10000,
+            commandTimeout: 5000,
+        });
 
         const lockKey = `${namespace}:${workflowId}`;
         const executionId = this.getExecutionId();
