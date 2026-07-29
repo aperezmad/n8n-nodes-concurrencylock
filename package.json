@@ -1,6 +1,6 @@
 {
   "name": "@aperezmad/n8n-nodes-concurrencylock",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Custom n8n nodes to manage concurrency locks using Redis.",
   "keywords": [
     "n8n-community-node-package",
@@ -45,9 +45,7 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "nodes": [
-      "dist/nodes/ConcurrencyLockCheck/ConcurrencyLockCheck.node.js",
-      "dist/nodes/ConcurrencyLockKeepAlive/ConcurrencyLockKeepAlive.node.js",
-      "dist/nodes/ConcurrencyLockRelease/ConcurrencyLockRelease.node.js"
+      "dist/nodes/ConcurrencyLock/ConcurrencyLock.node.js"
     ]
   },
   "devDependencies": {
