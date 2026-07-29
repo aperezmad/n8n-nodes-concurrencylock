@@ -1,6 +1,6 @@
 {
   "name": "@aperezmad/n8n-nodes-concurrencylock",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Custom n8n nodes to manage concurrency locks using Redis.",
   "keywords": [
     "n8n-community-node-package",

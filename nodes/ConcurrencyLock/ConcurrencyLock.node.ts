@@ -114,22 +114,11 @@ export class ConcurrencyLock implements INodeType {
                 name: 'namespace',
                 type: 'string',
                 default: 'executions',
-                required: true,
-                description: 'Redis key prefix used to group locks. Must match across all Concurrency Lock nodes of the same workflow. Example: "executions" produces the key "executions:&lt;workflowId&gt;".',
+                description: 'Redis key prefix used to group locks. Must match across all Concurrency Lock nodes of the same workflow. Example: "executions" produces the key "executions:&lt;key&gt;".',
             },
             {
-                displayName: 'Redis Database',
-                name: 'redisDb',
-                type: 'number',
-                default: 0,
-                typeOptions: {
-                    minValue: 0,
-                },
-                description: 'Logical database number (0-15 by default) where the lock keys live. Must match across all Concurrency Lock nodes of the same workflow. Defaults to 0 to preserve behavior of existing workflows.',
-            },
-            {
-                displayName: 'Workflow ID',
-                name: 'workflowId',
+                displayName: 'Key',
+                name: 'key',
                 type: 'string',
                 default: '={{ $workflow.id }}',
                 required: true,
@@ -137,7 +126,7 @@ export class ConcurrencyLock implements INodeType {
                     alwaysOpenEditWindow: true,
                     exposeResult: true,
                 },
-                description: 'Unique identifier for this lock. Defaults to the current workflow ID. Change it only if you need multiple independent locks within the same workflow. All Concurrency Lock nodes of the same workflow must use the same value.',
+                description: 'Unique identifier for this lock. Defaults to the current workflow ID. Change it only if you need multiple independent locks within the same workflow. All Concurrency Lock nodes of the same workflow should use the same value.',
             },
             {
                 displayName: 'TTL (Seconds)',
@@ -158,6 +147,19 @@ export class ConcurrencyLock implements INodeType {
                     },
                 },
                 description: 'Whether the lock value is the execution ID of the n8n execution that acquired it. When enabled, Keep Alive and Release verify ownership atomically before acting and throw an error if ownership is lost. When disabled, the lock is just a presence flag with no owner verification.',
+            },
+            {
+                displayName: 'Ignore If Not Exists',
+                name: 'ignoreIfNotExists',
+                type: 'boolean',
+                default: true,
+                noDataExpression: true,
+                displayOptions: {
+                    show: {
+                        operation: ['release'],
+                    },
+                },
+                description: 'Whether to skip the error and continue when the lock key does not exist, instead of throwing. Never ignored when Use Ownership is enabled: with ownership verification a missing key and a lock stolen by another execution return the same signal, so the error is always thrown to avoid masking a real ownership conflict.',
             },
         ],
     };
@@ -180,33 +182,28 @@ export class ConcurrencyLock implements INodeType {
         for (let i = 0; i < items.length; i++) {
             try {
                 const namespace = this.getNodeParameter('namespace', i) as string;
-                const workflowId = this.getNodeParameter('workflowId', i) as string;
-                const redisDb = this.getNodeParameter('redisDb', i, 0) as number;
+                const key = this.getNodeParameter('key', i) as string;
                 const ttl = this.getNodeParameter('ttl', i, 60) as number;
                 const useOwnership = this.getNodeParameter('useOwnership', i, false) as boolean;
 
-                if (!workflowId || workflowId.trim() === '') {
-                    throw new NodeOperationError(this.getNode(), 'Workflow ID cannot be empty', { itemIndex: i });
+                if (!key || key.trim() === '') {
+                    throw new NodeOperationError(this.getNode(), 'Key cannot be empty', { itemIndex: i });
                 }
                 if (!namespace || namespace.trim() === '') {
                     throw new NodeOperationError(this.getNode(), 'Namespace cannot be empty', { itemIndex: i });
                 }
-                if (!Number.isInteger(redisDb) || redisDb < 0) {
-                    throw new NodeOperationError(this.getNode(), 'Redis Database must be a non-negative integer', { itemIndex: i });
-                }
-
                 const redis = new Redis({
                     host: redisCredentials.host as string,
                     port: redisCredentials.port as number,
                     password: redisCredentials.password as string,
-                    db: redisDb,
+                    db: redisCredentials.database as number,
                     maxRetriesPerRequest: 3,
                     lazyConnect: true,
                     connectTimeout: 10000,
                     commandTimeout: 5000,
                 });
 
-                const lockKey = `${namespace}:${workflowId}`;
+                const lockKey = `${namespace}:${key}`;
 
                 try {
                     await redis.connect();
@@ -219,12 +216,11 @@ export class ConcurrencyLock implements INodeType {
                         const json = {
                             operation: 'check',
                             lockKey,
-                            workflowId,
+                            key,
                             executionId,
                             acquired: acquired === 'OK',
                             ownership: useOwnership,
                             namespace,
-                            redisDb,
                             ttl,
                         };
                         if (acquired === 'OK') {
@@ -265,11 +261,10 @@ export class ConcurrencyLock implements INodeType {
                             json: {
                                 operation: 'keepAlive',
                                 lockKey,
-                                workflowId,
+                                key,
                                 executionId,
                                 ownership: useOwnership,
                                 namespace,
-                                redisDb,
                                 ttl,
                             },
                             pairedItem: { item: i },
@@ -278,6 +273,7 @@ export class ConcurrencyLock implements INodeType {
                     }
 
                     // Release
+                    let released: boolean;
                     if (useOwnership) {
                         const ok = (await redis.eval(
                             RELEASE_IF_OWNER_SCRIPT,
@@ -292,9 +288,12 @@ export class ConcurrencyLock implements INodeType {
                                 { itemIndex: i },
                             );
                         }
+                        released = true;
                     } else {
-                        const released = (await redis.del(lockKey)) as number;
-                        if (released !== 1) {
+                        const ignoreIfNotExists = this.getNodeParameter('ignoreIfNotExists', i, true) as boolean;
+                        const deleted = (await redis.del(lockKey)) as number;
+                        released = deleted === 1;
+                        if (!released && !ignoreIfNotExists) {
                             throw new NodeOperationError(
                                 this.getNode(),
                                 `Cannot release lock "${lockKey}": it does not exist.`,
@@ -306,11 +305,11 @@ export class ConcurrencyLock implements INodeType {
                         json: {
                             operation: 'release',
                             lockKey,
-                            workflowId,
+                            key,
                             executionId,
                             ownership: useOwnership,
                             namespace,
-                            redisDb,
+                            released,
                         },
                         pairedItem: { item: i },
                     });
