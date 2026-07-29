@@ -17,6 +17,7 @@ fs.rmSync(stagingRoot, { recursive: true, force: true });
 fs.mkdirSync(stagingDir, { recursive: true });
 
 fs.cpSync(path.join(root, 'dist'), path.join(stagingDir, 'dist'), { recursive: true });
+fs.rmSync(path.join(stagingDir, 'dist', 'tsconfig.tsbuildinfo'), { force: true });
 
 const { devDependencies, scripts, ...runtimePkg } = pkg;
 fs.writeFileSync(
