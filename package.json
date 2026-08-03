@@ -1,6 +1,6 @@
 {
   "name": "@aperezmad/n8n-nodes-concurrencylock",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Custom n8n nodes to manage concurrency locks using Redis.",
   "keywords": [
     "n8n-community-node-package",
@@ -30,6 +30,7 @@
   "main": "index.js",
   "scripts": {
     "build": "npx rimraf dist && tsc && gulp build:icons",
+    "build:package": "pnpm run build && node scripts/package.js",
     "dev": "tsc --watch",
     "format": "prettier nodes --write",
     "lint": "eslint nodes package.json",
