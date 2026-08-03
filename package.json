@@ -27,6 +27,7 @@
   "engines": {
     "node": ">=20.15"
   },
+  "packageManager": "pnpm@10.33.4",
   "main": "index.js",
   "scripts": {
     "build": "npx rimraf dist && tsc && gulp build:icons",
@@ -50,7 +51,7 @@
   },
   "devDependencies": {
     "@types/luxon": "^3.6.2",
-    "@typescript-eslint/eslint-plugin": "7.0.0",
+    "@typescript-eslint/eslint-plugin": "7.18.0",
     "@typescript-eslint/parser": "7.0.0",
     "eslint": "8.56.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.3",

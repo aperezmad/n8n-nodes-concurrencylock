@@ -16,18 +16,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'pnpm'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@aperezmad'
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build install-ready package
-        run: npm run build:package
+        run: pnpm run build:package
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
@@ -36,7 +40,7 @@ jobs:
           path: '*.tgz'
 
       - name: Publish to GitHub Packages
-        run: npm publish
+        run: pnpm publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
