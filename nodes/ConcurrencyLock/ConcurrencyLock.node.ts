@@ -1,4 +1,5 @@
 import type {
+    IDataObject,
     IExecuteFunctions,
     INodeExecutionData,
     INodeType,
@@ -161,6 +162,14 @@ export class ConcurrencyLock implements INodeType {
                 },
                 description: 'Whether to skip the error and continue when the lock key does not exist, instead of throwing. Never ignored when Use Ownership is enabled: with ownership verification a missing key and a lock stolen by another execution return the same signal, so the error is always thrown to avoid masking a real ownership conflict.',
             },
+            {
+                displayName: 'Pass Through Input',
+                name: 'passThrough',
+                type: 'boolean',
+                default: false,
+                noDataExpression: true,
+                description: 'Whether to output the incoming item unchanged instead of the lock result data. Routing (Idle/Locked) and errors are unaffected.',
+            },
         ],
     };
 
@@ -178,6 +187,14 @@ export class ConcurrencyLock implements INodeType {
             () => [],
         );
         const executionId = this.getExecutionId();
+
+        // Builds the output item: either the lock result or the untouched input item.
+        const buildItem = (json: IDataObject, i: number): INodeExecutionData => {
+            const passThrough = this.getNodeParameter('passThrough', i, false) as boolean;
+            return passThrough
+                ? { ...items[i], pairedItem: { item: i } }
+                : { json, pairedItem: { item: i } };
+        };
 
         for (let i = 0; i < items.length; i++) {
             try {
@@ -223,11 +240,7 @@ export class ConcurrencyLock implements INodeType {
                             namespace,
                             ttl,
                         };
-                        if (acquired === 'OK') {
-                            returnData[0].push({ json, pairedItem: { item: i } });
-                        } else {
-                            returnData[1].push({ json, pairedItem: { item: i } });
-                        }
+                        returnData[acquired === 'OK' ? 0 : 1].push(buildItem(json, i));
                         continue;
                     }
 
@@ -257,18 +270,20 @@ export class ConcurrencyLock implements INodeType {
                                 );
                             }
                         }
-                        returnData[0].push({
-                            json: {
-                                operation: 'keepAlive',
-                                lockKey,
-                                key,
-                                executionId,
-                                ownership: useOwnership,
-                                namespace,
-                                ttl,
-                            },
-                            pairedItem: { item: i },
-                        });
+                        returnData[0].push(
+                            buildItem(
+                                {
+                                    operation: 'keepAlive',
+                                    lockKey,
+                                    key,
+                                    executionId,
+                                    ownership: useOwnership,
+                                    namespace,
+                                    ttl,
+                                },
+                                i,
+                            ),
+                        );
                         continue;
                     }
 
@@ -301,18 +316,20 @@ export class ConcurrencyLock implements INodeType {
                             );
                         }
                     }
-                    returnData[0].push({
-                        json: {
-                            operation: 'release',
-                            lockKey,
-                            key,
-                            executionId,
-                            ownership: useOwnership,
-                            namespace,
-                            released,
-                        },
-                        pairedItem: { item: i },
-                    });
+                    returnData[0].push(
+                        buildItem(
+                            {
+                                operation: 'release',
+                                lockKey,
+                                key,
+                                executionId,
+                                ownership: useOwnership,
+                                namespace,
+                                released,
+                            },
+                            i,
+                        ),
+                    );
                 } finally {
                     await redis.quit();
                 }
